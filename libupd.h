@@ -253,6 +253,20 @@ void
 upd_file_unlock(
   upd_file_lock_t* l);
 
+static inline upd_file_lock_t* upd_file_lock_with_dup(
+    const upd_file_lock_t* l) {
+  upd_file_lock_t* k = upd_iso_stack(l->file->iso, sizeof(*k));
+  if (k == NULL) {
+    return NULL;
+  }
+  *k = *l;
+  if (!upd_file_lock(k)) {
+    upd_iso_unstack(l->file->iso, k);
+    return NULL;
+  }
+  return k;
+}
+
 
 /*
  * ---- REQUEST INTERFACE ----
