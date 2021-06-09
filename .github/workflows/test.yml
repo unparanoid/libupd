@@ -1,0 +1,60 @@
+name: test
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test-on-ubuntu:
+    strategy:
+      fail-fast: false
+      matrix:
+        mode:
+          - Debug
+          - Release
+
+    name: ${{ matrix.mode }} (Ubuntu x86_64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: build
+        run: |
+          mkdir -p /tmp/libupd
+          cd /tmp/libupd
+          cmake -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=${{ matrix.model }} ${{ github.workspace }}
+          make -j VERBOSE=1
+
+      - name: exec
+        run: |
+          ctest
+
+  build-on-win64:
+    strategy:
+      fail-fast: false
+      matrix:
+        mode:
+          - Debug
+          - Release
+
+    name: ${{ matrix.mode }} (Win64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: building
+        run: |
+          mkdir -p /tmp/libupd
+          cd /tmp/libupd
+          cmake -G "NMake Makefiles" -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=${{ matrix.mode }} ${{ github.workspace }}
+          cmake --build . --verbose
+
+      - name: exec
+        run: |
+          ctest
+

@@ -11,7 +11,7 @@ add_subdirectory(thirdparty)
 
 # ---- core library ----
 add_library(libupd INTERFACE)
-target_include_directories(libupd SYSTEM
+target_include_directories(libupd SYSTEM BEFORE
   INTERFACE .
 )
 target_sources(libupd
