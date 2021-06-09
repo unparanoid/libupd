@@ -9,6 +9,16 @@ include(CTest)
 add_subdirectory(thirdparty)
 
 
+# ---- env check ----
+if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
+  set(UPD_C_FLAGS -Wall -Wextra -Werror -pedantic -Wno-missing-field-initializers)
+elseif (CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+  set(UPD_C_FLAGS /W2 /std:c11 /Zc:preprocessor-)
+else()
+  message(ERROR "unknown compiler")
+endif()
+
+
 # ---- core library ----
 add_library(libupd INTERFACE)
 target_include_directories(libupd SYSTEM BEFORE
@@ -36,6 +46,9 @@ if(BUILD_TESTING)
   target_link_libraries(libupd-test
     PRIVATE
       libupd
+  )
+  target_compile_options(libupd-test
+    PRIVATE ${UPD_C_FLAGS}
   )
   target_sources(libupd-test
     PRIVATE
