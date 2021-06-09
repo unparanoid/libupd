@@ -1,7 +1,12 @@
 #pragma once
 
+#include <stdarg.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
+
+#include <hedley.h>
 
 
 #if defined(UPD_DECL_FUNC)
@@ -53,23 +58,28 @@ enum {
   UPD_ISO_REBOOT   =  1,
 };
 
+HEDLEY_NON_NULL(1)
+HEDLEY_WARN_UNUSED_RESULT
 UPD_DECL_FUNC
 void*
 upd_iso_stack(
   upd_iso_t* iso,
   uint64_t   len);
 
+HEDLEY_NON_NULL(1)
 UPD_DECL_FUNC
 void
 upd_iso_unstack(
   upd_iso_t* iso,
   void*      ptr);
 
+HEDLEY_NON_NULL(1)
 UPD_DECL_FUNC
 uint64_t
 upd_iso_now(
   upd_iso_t* iso);
 
+HEDLEY_NON_NULL(1, 2)
 UPD_DECL_FUNC
 void
 upd_iso_msg(
@@ -77,6 +87,8 @@ upd_iso_msg(
   const uint8_t* msg,
   uint64_t       len);
 
+HEDLEY_NON_NULL(1, 2)
+HEDLEY_WARN_UNUSED_RESULT
 UPD_DECL_FUNC
 bool
 upd_iso_start_thread(
@@ -84,6 +96,7 @@ upd_iso_start_thread(
   upd_iso_thread_main_t main,
   void*                 udata);
 
+HEDLEY_NON_NULL(1, 2, 3)
 UPD_DECL_FUNC
 bool
 upd_iso_start_work(
@@ -91,6 +104,23 @@ upd_iso_start_work(
   upd_iso_thread_main_t main,
   upd_iso_work_cb_t     cb,
   void*                 udata);
+
+HEDLEY_NON_NULL(1)
+static inline void upd_iso_msgfv(upd_iso_t* iso, const char* fmt, va_list args) {
+  uint8_t buf[1024];
+
+  const size_t len = vsnprintf((char*) buf, sizeof(buf), fmt, args);
+  upd_iso_msg(iso, buf, len);
+}
+
+HEDLEY_NON_NULL(1)
+HEDLEY_PRINTF_FORMAT(2, 3)
+static inline void upd_iso_msgf(upd_iso_t* iso, const char* fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  upd_iso_msgfv(iso, fmt, args);
+  va_end(args);
+}
 
 
 /*
@@ -121,6 +151,7 @@ struct upd_driver_t {
     upd_req_t* req);
 };
 
+HEDLEY_NON_NULL(1, 2)
 UPD_DECL_FUNC
 const upd_driver_t*
 upd_driver_lookup(
@@ -193,38 +224,47 @@ struct upd_file_lock_t {
   unsigned ok : 1;
 };
 
+HEDLEY_NON_NULL(1, 2)
+HEDLEY_WARN_UNUSED_RESULT
 UPD_DECL_FUNC
 upd_file_t*
 upd_file_new(
   upd_iso_t*          iso,
   const upd_driver_t* driver);
 
+HEDLEY_NON_NULL(1)
 UPD_DECL_FUNC
 upd_file_t*
 upd_file_get(
   upd_iso_t*    iso,
   upd_file_id_t id);
 
+HEDLEY_NON_NULL(1)
 UPD_DECL_FUNC
 void
 upd_file_ref(
   upd_file_t* file);
 
+HEDLEY_NON_NULL(1)
 UPD_DECL_FUNC
 bool
 upd_file_unref(
   upd_file_t* file);
 
+HEDLEY_NON_NULL(1)
+HEDLEY_WARN_UNUSED_RESULT
 UPD_DECL_FUNC
 bool
 upd_file_watch(
   upd_file_watch_t* w);
 
+HEDLEY_NON_NULL(1)
 UPD_DECL_FUNC
 void
 upd_file_unwatch(
   upd_file_watch_t* w);
 
+HEDLEY_NON_NULL(1)
 UPD_DECL_FUNC
 void
 upd_file_trigger(
@@ -232,27 +272,36 @@ upd_file_trigger(
   upd_file_event_t e);
 
 /* thread-safe */
+HEDLEY_NON_NULL(1)
+HEDLEY_WARN_UNUSED_RESULT
 UPD_DECL_FUNC
 bool
 upd_file_trigger_async(
   upd_file_t* f);
 
+HEDLEY_NON_NULL(1)
+HEDLEY_WARN_UNUSED_RESULT
 UPD_DECL_FUNC
 bool
 upd_file_trigger_timer(
   upd_file_t* f,
   uint64_t    dur);
 
+HEDLEY_NON_NULL(1)
+HEDLEY_WARN_UNUSED_RESULT
 UPD_DECL_FUNC
 bool
 upd_file_lock(
   upd_file_lock_t* l);
 
+HEDLEY_NON_NULL(1)
 UPD_DECL_FUNC
 void
 upd_file_unlock(
   upd_file_lock_t* l);
 
+HEDLEY_NON_NULL(1)
+HEDLEY_WARN_UNUSED_RESULT
 static inline upd_file_lock_t* upd_file_lock_with_dup(
     const upd_file_lock_t* l) {
   upd_file_lock_t* k = upd_iso_stack(l->file->iso, sizeof(*k));
@@ -405,12 +454,16 @@ struct upd_req_t {
   };
 };
 
+HEDLEY_NON_NULL(1)
+HEDLEY_WARN_UNUSED_RESULT
 static inline bool upd_req(upd_req_t* req) {
   upd_file_t* f = req->file;
   f->last_req = upd_iso_now(f->iso);
   return req->file->driver->handle(req);
 }
 
+HEDLEY_NON_NULL(1)
+HEDLEY_WARN_UNUSED_RESULT
 static inline upd_req_t* upd_req_with_dup(const upd_req_t* src) {
   upd_req_t* dst = upd_iso_stack(src->file->iso, sizeof(*dst));
   if (dst == NULL) {
