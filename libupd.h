@@ -346,7 +346,8 @@ static inline upd_file_lock_t* upd_file_lock_with_dup(
   f(TENSOR, 0x0000, ACCESS)  \
   f(TENSOR, 0x0010, ALLOC)  \
   f(TENSOR, 0x0020, META)  \
-  f(TENSOR, 0x0030, DATA)
+  f(TENSOR, 0x0030, DATA)  \
+  f(TENSOR, 0x0038, FLUSH)
 
 enum {
 # define each_(i, N) UPD_REQ_##N = i,
@@ -407,10 +408,9 @@ typedef struct upd_req_tensor_access_t {
 } upd_req_tensor_access_t;
 
 typedef struct upd_req_tensor_meta_t {
-  uint8_t rank;
-
-  upd_tensor_type_t* type;
-  uint32_t*          reso;
+  uint8_t           rank;
+  upd_tensor_type_t type;
+  uint32_t*         reso;
 
   unsigned inplace : 1;
 } upd_req_tensor_meta_t;
