@@ -1,4 +1,5 @@
-set(BUILD_TESTING OFF)
+set(BUILD_SHARED_LIBS OFF)
+set(BUILD_TESTING     OFF)
 
 
 # ---- hedley (https://github.com/nemequ/hedley) ----
@@ -9,6 +10,12 @@ target_include_directories(hedley SYSTEM BEFORE
 target_sources(hedley
   INTERFACE hedley/hedley.h
 )
+
+
+# ---- msgpack-c (https://github.com/msgpack/msgpack-c) ----
+set(MSGPACK_ENABLE_STATIC  ON)
+set(MSGPACK_BUILD_EXAMPLES OFF)
+add_subdirectory(msgpack-c)
 
 
 # ---- utf8.h (https://github.com/sheredom/utf8.h) ----

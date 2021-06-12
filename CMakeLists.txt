@@ -30,12 +30,14 @@ target_sources(libupd
     libupd/array.h
     libupd/buf.h
     libupd/memory.h
+    libupd/msgpack.h
     libupd/path.h
     libupd/pathfind.h
 )
 target_link_libraries(libupd
   INTERFACE
     hedley
+    msgpackc
     utf8.h
 )
 

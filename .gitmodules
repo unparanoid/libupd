@@ -4,3 +4,6 @@
 [submodule "thirdparty/hedley"]
 	path = thirdparty/hedley
 	url = https://github.com/nemequ/hedley
+[submodule "thirdparty/msgpack-c"]
+	path = thirdparty/msgpack-c
+	url = https://github.com/msgpack/msgpack-c
