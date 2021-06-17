@@ -181,17 +181,18 @@ enum {
 };
 
 struct upd_file_t {
+  /* filled by user */
   upd_iso_t*          iso;
   const upd_driver_t* driver;
+  uint8_t*            npath;
+  size_t              npathlen;
 
-  uint8_t* npath;
-
+  /* filled by iso */
   upd_file_id_t id;
   uint64_t      refcnt;
-
-  uint64_t last_update;
-  uint64_t last_req;
-  uint64_t last_uncache;
+  uint64_t      last_update;
+  uint64_t      last_req;
+  uint64_t      last_uncache;
 
   /* filled by driver */
   const uint8_t* mimetype;
@@ -224,13 +225,12 @@ struct upd_file_lock_t {
   unsigned ok : 1;
 };
 
-HEDLEY_NON_NULL(1, 2)
+HEDLEY_NON_NULL(1)
 HEDLEY_WARN_UNUSED_RESULT
 UPD_DECL_FUNC
 upd_file_t*
 upd_file_new(
-  upd_iso_t*          iso,
-  const upd_driver_t* driver);
+  const upd_file_t* src);
 
 HEDLEY_NON_NULL(1)
 UPD_DECL_FUNC
@@ -516,7 +516,7 @@ typedef struct upd_host_t {
   } driver;
 
   struct {
-    upd_file_t* (*new)(upd_iso_t* iso, const upd_driver_t* driver);
+    upd_file_t* (*new)(const upd_file_t* src);
     upd_file_t* (*get)(upd_iso_t* iso, upd_file_id_t id);
     void (*ref)(upd_file_t* f);
     bool (*unref)(upd_file_t* f);
@@ -591,8 +591,8 @@ static inline bool upd_iso_start_work(upd_iso_t* iso, upd_iso_thread_main_t main
 static inline const upd_driver_t* upd_driver_lookup(upd_iso_t* iso, const uint8_t* name, uint64_t len) {
   return upd.host->driver.lookup(iso, name, len);
 }
-static inline upd_file_t* upd_file_new(upd_iso_t* iso, const upd_driver_t* driver) {
-  return upd.host->file.new(iso, driver);
+static inline upd_file_t* upd_file_new(const upd_file_t* src) {
+  return upd.host->file.new(src);
 }
 static inline upd_file_t* upd_file_get(upd_iso_t* iso, upd_file_id_t id) {
   return upd.host->file.get(iso, id);
