@@ -103,6 +103,7 @@ static inline void upd_msgpack_find_fields(
   const msgpack_object* obj,
   upd_msgpack_field_t*  f);
 
+/* Don't forget unref fetched files! */
 HEDLEY_NON_NULL(1)
 static inline
 bool
@@ -445,6 +446,9 @@ static inline void upd_msgpack_fetch_fields_pathfind_cb_(upd_pathfind_t* pf) {
   *file = pf->len? NULL: pf->base;
   upd_iso_unstack(iso, pf);
 
+  if (HEDLEY_LIKELY(*file)) {
+    upd_file_ref(*file);
+  }
   if (HEDLEY_UNLIKELY(--f->refcnt == 0)) {
     f->cb(f);
   }
