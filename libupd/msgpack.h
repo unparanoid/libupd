@@ -362,7 +362,9 @@ static inline bool upd_msgpack_fetch_fields(upd_msgpack_fetch_t* f) {
   upd_iso_t* iso = f->iso;
 
   f->refcnt = 1;
-  upd_msgpack_find_fields(f->obj, f->fields);
+  if (HEDLEY_LIKELY(f->obj)) {
+    upd_msgpack_find_fields(f->obj, f->fields);
+  }
 
   const upd_msgpack_field_t* fi = f->fields;
   while (fi->name) {
