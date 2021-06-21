@@ -178,6 +178,7 @@ enum {
   UPD_FILE_POSTPROC = 0x38,
   UPD_FILE_ASYNC    = 0x40,
   UPD_FILE_TIMER    = 0x50,
+  UPD_FILE_SHUTDOWN = 0xF0,
 };
 
 struct upd_file_t {
