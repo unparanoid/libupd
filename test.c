@@ -43,6 +43,9 @@ test_path_(
 
 
 int main(void) {
+  assert((UPD_VER >> 16 & 0xFFFF) == UPD_VER_MAJOR);
+  assert((UPD_VER >>  0 & 0xFFFF) == UPD_VER_MINOR);
+
   test_memory_();
 
   test_array_();

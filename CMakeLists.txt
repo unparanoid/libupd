@@ -5,11 +5,17 @@ project(libupd C)
 
 # ---- include external deps ----
 include(CTest)
+include(TestBigEndian)
 
 add_subdirectory(thirdparty)
 
 
 # ---- env check ----
+test_big_endian(UPD_BIG_ENDIAN)
+if (UPD_BIG_ENDIAN)
+  message(FATAL_ERROR "big endian is not supported")
+endif()
+
 if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
   set(UPD_C_FLAGS -Wall -Wextra -Werror -pedantic -Wno-missing-field-initializers)
 elseif (CMAKE_C_COMPILER_ID STREQUAL "MSVC")

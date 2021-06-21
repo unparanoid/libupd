@@ -9,6 +9,13 @@
 #include <hedley.h>
 
 
+#define UPD_VER_MAJOR UINT16_C(0)
+#define UPD_VER_MINOR UINT16_C(1)
+
+#define UPD_VER  \
+  ((UPD_VER_MAJOR) << 16 | UPD_VER_MINOR)
+
+
 #if defined(UPD_DECL_FUNC)
 #  if defined(UPD_EXTERNAL_DRIVER)
 #    error "both UPD_EXTERNAL_DRIVER and UPD_DECL_FUNC is defined"
@@ -29,6 +36,7 @@ typedef struct upd_file_lock_t  upd_file_lock_t;
 typedef struct upd_driver_t     upd_driver_t;
 typedef struct upd_req_t        upd_req_t;
 
+typedef uint32_t upd_ver_t;
 typedef int32_t  upd_iso_status_t;
 typedef uint64_t upd_file_id_t;
 typedef uint8_t  upd_file_event_t;
@@ -510,6 +518,8 @@ static inline uint64_t upd_tensor_type_sizeof(upd_tensor_type_t t) {
 
 /* ---- IMPLEMENTATIONS FOR EXTERNAL DRIVERS ---- */
 typedef struct upd_host_t {
+  upd_ver_t ver;
+
   struct {
     void* (*stack)(upd_iso_t* iso, uint64_t len);
     void (*unstack)(upd_iso_t* iso, void* ptr);
@@ -538,6 +548,7 @@ typedef struct upd_host_t {
   } file;
 
 # define UPD_HOST_INSTANCE {  \
+    .ver = UPD_VER,  \
     .iso = {  \
       .stack        = upd_iso_stack,  \
       .unstack      = upd_iso_unstack,  \
@@ -566,6 +577,8 @@ typedef struct upd_host_t {
 } upd_host_t;
 
 typedef struct upd_external_t {
+  upd_ver_t ver;
+
   const upd_host_t*    host;
   const upd_driver_t** drivers;
 } upd_external_t;
