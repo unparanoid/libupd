@@ -167,7 +167,7 @@ static inline bool upd_msgpack_handle(upd_msgpack_t* ctx, upd_req_t* req) {
   }
 
   switch (req->type) {
-  case UPD_REQ_STREAM_ACCESS:
+  case UPD_REQ_DSTREAM_ACCESS:
     req->stream.access = (upd_req_stream_access_t) {
       .write = ctx->in,
       .read  = ctx->out,
@@ -176,7 +176,7 @@ static inline bool upd_msgpack_handle(upd_msgpack_t* ctx, upd_req_t* req) {
     req->cb(req);
     return true;
 
-  case UPD_REQ_STREAM_READ: {
+  case UPD_REQ_DSTREAM_READ: {
     if (HEDLEY_UNLIKELY(req->stream.io.offset)) {
       req->result = UPD_REQ_INVALID;
       return false;
@@ -194,7 +194,7 @@ static inline bool upd_msgpack_handle(upd_msgpack_t* ctx, upd_req_t* req) {
     req->cb(req);
   } return true;
 
-  case UPD_REQ_STREAM_WRITE: {
+  case UPD_REQ_DSTREAM_WRITE: {
     if (HEDLEY_UNLIKELY(req->stream.io.offset)) {
       req->result = UPD_REQ_INVALID;
       return false;

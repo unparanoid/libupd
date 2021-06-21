@@ -322,10 +322,11 @@ static inline upd_file_lock_t* upd_file_lock_with_dup(
  * ---- REQUEST INTERFACE ----
  */
 #define UPD_REQ_CAT_EACH(f)  \
-  f(0x0000, DIR)  \
-  f(0x0001, PROG)  \
+  f(0x0001, DIR)  \
   f(0x0002, STREAM)  \
-  f(0x0003, TENSOR)
+  f(0x0003, PROG)  \
+  f(0x0004, DSTREAM)  \
+  f(0x0005, TENSOR)
 
 #define UPD_REQ_TYPE_EACH(f)  \
   f(DIR, 0x0000, ACCESS)  \
@@ -336,13 +337,18 @@ static inline upd_file_lock_t* upd_file_lock_with_dup(
   f(DIR, 0x0039, NEWDIR)  \
   f(DIR, 0x0040, RM)  \
 \
+  f(STREAM, 0x0000, ACCESS)  \
+  f(STREAM, 0x0010, READ)  \
+  f(STREAM, 0x0020, WRITE)  \
+  f(STREAM, 0x0030, TRUNCATE)  \
+\
   f(PROG, 0x0000, ACCESS)  \
   f(PROG, 0x0010, COMPILE)  \
   f(PROG, 0x0020, EXEC)  \
 \
-  f(STREAM, 0x0000, ACCESS)  \
-  f(STREAM, 0x0010, READ)  \
-  f(STREAM, 0x0020, WRITE)  \
+  f(DSTREAM, 0x0000, ACCESS)  \
+  f(DSTREAM, 0x0010, READ)  \
+  f(DSTREAM, 0x0020, WRITE)  \
 \
   f(TENSOR, 0x0000, ACCESS)  \
   f(TENSOR, 0x0010, ALLOC)  \
@@ -392,8 +398,9 @@ typedef struct upd_req_prog_access_t {
 } upd_req_prog_access_t;
 
 typedef struct upd_req_stream_access_t {
-  unsigned read  : 1;
-  unsigned write : 1;
+  unsigned read     : 1;
+  unsigned write    : 1;
+  unsigned truncate : 1;
 } upd_req_stream_access_t;
 
 typedef struct upd_req_stream_io_t {
