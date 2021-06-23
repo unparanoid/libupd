@@ -17,9 +17,9 @@ struct upd_pathfind_t {
   upd_iso_t*  iso;
   upd_file_t* base;
 
-  uint8_t* path;
-  size_t   len;
-  size_t   term;
+  const uint8_t* path;
+  size_t         len;
+  size_t         term;
 
   bool create;
 
@@ -153,7 +153,7 @@ static void upd_pathfind_find_cb_(upd_req_t* req) {
         .file = pf->base,
         .type = UPD_REQ_DIR_NEWDIR,
         .dir  = { .entry = {
-          .name = pf->path,
+          .name = (uint8_t*) pf->path,
           .len  = pf->term,
         }, },
         .udata = pf,
