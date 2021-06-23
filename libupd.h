@@ -10,7 +10,7 @@
 
 
 #define UPD_VER_MAJOR UINT16_C(0)
-#define UPD_VER_MINOR UINT16_C(1)
+#define UPD_VER_MINOR UINT16_C(2)
 
 #define UPD_VER  \
   ((UPD_VER_MAJOR) << 16 | UPD_VER_MINOR)
@@ -392,7 +392,6 @@ typedef struct upd_req_dir_entry_t {
   uint8_t*    name;
   uint64_t    len;
   upd_file_t* file;
-  bool        weakref;
 } upd_req_dir_entry_t;
 
 typedef struct upd_req_dir_entries_t {
