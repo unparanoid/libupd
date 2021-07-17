@@ -1,13 +1,21 @@
 #pragma once
 
+#include <ctype.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include <hedley.h>
+#include <utf8.h>
 
 
 #define UPD_PATH_MAX 512
+
+#define UPD_PATH_NAME_VALID_CHARS  \
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZ"  \
+  "abcdefghijklmnopqrstuvwxyz"  \
+  "0123456789"  \
+  "-_."
 
 
 static inline size_t upd_path_normalize(uint8_t* path, size_t len) {
@@ -31,9 +39,8 @@ static inline bool upd_path_validate_name(const uint8_t* name, size_t len) {
   if (HEDLEY_UNLIKELY(len == 0)) {
     return false;
   }
-
   for (size_t i = 0; i < len; ++i) {
-    if (HEDLEY_UNLIKELY(name[i] == '/')) {
+    if (HEDLEY_UNLIKELY(utf8chr(UPD_PATH_NAME_VALID_CHARS, name[i]) == NULL)) {
       return false;
     }
   }

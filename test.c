@@ -128,6 +128,7 @@ static void test_path_(void) {
 
   assert( upd_path_validate_name((uint8_t*) "foo",     3));
   assert(!upd_path_validate_name((uint8_t*) "foo/baz", 7));
+  assert(!upd_path_validate_name((uint8_t*) "foo,baz", 7));
 
   uint8_t p2[] = "///hoge//piyo//////////////";
   assert(upd_path_drop_trailing_slash(
