@@ -10,7 +10,7 @@
 
 
 #define UPD_VER_MAJOR UINT16_C(0)
-#define UPD_VER_MINOR UINT16_C(2)
+#define UPD_VER_MINOR UINT16_C(3)
 
 #define UPD_VER  \
   ((UPD_VER_MAJOR) << 16 | UPD_VER_MINOR)
@@ -193,8 +193,15 @@ struct upd_file_t {
   /* filled by user */
   upd_iso_t*          iso;
   const upd_driver_t* driver;
-  uint8_t*            npath;
-  size_t              npathlen;
+
+  uint8_t* path;
+  uint64_t pathlen;
+
+  uint8_t* npath;
+  uint64_t npathlen;
+
+  uint8_t* param;
+  uint64_t paramlen;
 
   /* filled by iso */
   upd_file_id_t id;
