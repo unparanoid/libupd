@@ -11,6 +11,8 @@
 
 
 typedef struct upd_msgpack_t       upd_msgpack_t;
+typedef struct upd_msgpack_recv_t  upd_msgpack_recv_t;
+
 typedef struct upd_msgpack_field_t upd_msgpack_field_t;
 typedef struct upd_msgpack_fetch_t upd_msgpack_fetch_t;
 
@@ -23,6 +25,29 @@ struct upd_msgpack_t {
   upd_array_of(msgpack_unpacked*) in;
   msgpack_sbuffer                 out;
 };
+
+struct upd_msgpack_recv_t {
+  upd_file_t*      file;
+  upd_file_watch_t watch;
+  upd_req_t        req;
+
+  msgpack_unpacker upk;
+  msgpack_unpacked upkd;
+
+  msgpack_object* obj;
+
+  unsigned first   : 1;
+  unsigned ok      : 1;
+  unsigned busy    : 1;
+  unsigned reading : 1;
+  unsigned pending : 1;
+
+  void* udata;
+  void
+  (*cb)(
+    upd_msgpack_recv_t* recv);
+};
+
 
 struct upd_msgpack_field_t {
   const char* name;
@@ -87,6 +112,26 @@ upd_msgpack_pop(
   upd_msgpack_t* mpk);
 
 
+HEDLEY_NON_NULL(1)
+HEDLEY_WARN_UNUSED_RESULT
+static inline
+bool
+upd_msgpack_recv_init(
+  upd_msgpack_recv_t* recv);
+
+HEDLEY_NON_NULL(1)
+static inline
+void
+upd_msgpack_recv_deinit(
+  upd_msgpack_recv_t* recv);
+
+HEDLEY_NON_NULL(1)
+static inline
+void
+upd_msgpack_recv_next(
+  upd_msgpack_recv_t* recv);
+
+
 HEDLEY_NON_NULL(1, 2)
 HEDLEY_WARN_UNUSED_RESULT
 static inline
@@ -130,6 +175,16 @@ upd_msgpack_pack_bool(
   msgpack_packer* pk,
   bool            b);
 
+
+static inline
+void
+upd_msgpack_recv_watch_cb_(
+  upd_file_watch_t* w);
+
+static inline
+void
+upd_msgpack_recv_read_cb_(
+  upd_req_t* req);
 
 static inline
 void
@@ -194,6 +249,56 @@ static inline bool upd_msgpack_unpack(
 
 static inline msgpack_unpacked* upd_msgpack_pop(upd_msgpack_t* ctx) {
   return upd_array_remove(&ctx->in, SIZE_MAX);
+}
+
+
+static inline bool upd_msgpack_recv_init(upd_msgpack_recv_t* recv) {
+  if (HEDLEY_UNLIKELY(!msgpack_unpacker_init(&recv->upk, 1024))) {
+    return false;
+  }
+
+  recv->watch = (upd_file_watch_t) {
+    .file  = recv->file,
+    .udata = recv,
+    .cb    = upd_msgpack_recv_watch_cb_,
+  };
+  if (HEDLEY_UNLIKELY(!upd_file_watch(&recv->watch))) {
+    msgpack_unpacker_destroy(&recv->upk);
+    return false;
+  }
+
+  msgpack_unpacked_init(&recv->upkd);
+  upd_file_ref(recv->file);
+  return true;
+}
+
+static inline void upd_msgpack_recv_deinit(upd_msgpack_recv_t* recv) {
+  assert(!recv->reading);
+
+  upd_file_unwatch(&recv->watch);
+  upd_file_unref(recv->file);
+
+  msgpack_unpacker_destroy(&recv->upk);
+  msgpack_unpacked_destroy(&recv->upkd);
+}
+
+static inline void upd_msgpack_recv_next(upd_msgpack_recv_t* recv) {
+  recv->req = (upd_req_t) {
+    .file = recv->file,
+    .type = UPD_REQ_DSTREAM_READ,
+    .stream = { .io = {
+      .size = SIZE_MAX,
+    }, },
+    .udata = recv,
+    .cb    = upd_msgpack_recv_read_cb_,
+  };
+  recv->busy    = true;
+  recv->reading = true;
+  recv->pending = false;
+  if (HEDLEY_UNLIKELY(!upd_req(&recv->req))) {
+    recv->ok = false;
+    recv->cb(recv);
+  }
 }
 
 
@@ -384,6 +489,61 @@ static inline int upd_msgpack_pack_cstr(msgpack_packer* pk, const char* v) {
 
 static inline int upd_msgpack_pack_bool(msgpack_packer* pk, bool b) {
   return (b? msgpack_pack_true: msgpack_pack_false)(pk);
+}
+
+
+static inline void upd_msgpack_recv_watch_cb_(upd_file_watch_t* w) {
+  upd_msgpack_recv_t* recv = w->udata;
+
+  switch (w->event) {
+  case UPD_FILE_UPDATE:
+    if (HEDLEY_UNLIKELY(recv->busy)) {
+      recv->pending = true;
+    } else {
+      upd_msgpack_recv_next(recv);
+    }
+    break;
+  }
+}
+
+static inline void upd_msgpack_recv_read_cb_(upd_req_t* req) {
+  upd_msgpack_recv_t* recv = req->udata;
+  recv->reading = false;
+
+  if (HEDLEY_UNLIKELY(req->result != UPD_REQ_OK)) {
+    goto ABORT;
+  }
+
+  const upd_req_stream_io_t* io = &req->stream.io;
+  if (HEDLEY_UNLIKELY(!msgpack_unpacker_reserve_buffer(&recv->upk, io->size))) {
+    goto ABORT;
+  }
+  memcpy(msgpack_unpacker_buffer(&recv->upk), io->buf, io->size);
+  msgpack_unpacker_buffer_consumed(&recv->upk, io->size);
+
+  const int ret = msgpack_unpacker_next(&recv->upk, &recv->upkd);
+  switch (ret) {
+  case MSGPACK_UNPACK_SUCCESS:
+    recv->ok  = true;
+    recv->obj = &recv->upkd.data;
+    recv->cb(recv);
+    return;
+
+  case MSGPACK_UNPACK_CONTINUE:
+    if (recv->pending) {
+      upd_msgpack_recv_next(recv);
+    } else {
+      recv->busy = false;
+    }
+    return;
+
+  case MSGPACK_UNPACK_PARSE_ERROR:
+    goto ABORT;
+  }
+
+ABORT:
+  recv->ok = false;
+  recv->cb(recv);
 }
 
 
