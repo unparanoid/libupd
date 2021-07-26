@@ -248,7 +248,7 @@ static inline bool upd_msgpack_unpack(
 }
 
 static inline msgpack_unpacked* upd_msgpack_pop(upd_msgpack_t* ctx) {
-  return upd_array_remove(&ctx->in, SIZE_MAX);
+  return upd_array_remove(&ctx->in, 0);
 }
 
 
