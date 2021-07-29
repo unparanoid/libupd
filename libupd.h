@@ -10,7 +10,7 @@
 
 
 #define UPD_VER_MAJOR UINT16_C(0)
-#define UPD_VER_MINOR UINT16_C(3)
+#define UPD_VER_MINOR UINT16_C(4)
 
 #define UPD_VER  \
   ((UPD_VER_MAJOR) << 16 | UPD_VER_MINOR)
@@ -344,7 +344,6 @@ static inline upd_file_lock_t* upd_file_lock_with_dup(
   f(0x0005, TENSOR)
 
 #define UPD_REQ_TYPE_EACH(f)  \
-  f(DIR, 0x0000, ACCESS)  \
   f(DIR, 0x0010, LIST)  \
   f(DIR, 0x0020, FIND)  \
   f(DIR, 0x0030, ADD)  \
@@ -352,20 +351,16 @@ static inline upd_file_lock_t* upd_file_lock_with_dup(
   f(DIR, 0x0039, NEWDIR)  \
   f(DIR, 0x0040, RM)  \
 \
-  f(STREAM, 0x0000, ACCESS)  \
   f(STREAM, 0x0010, READ)  \
   f(STREAM, 0x0020, WRITE)  \
   f(STREAM, 0x0030, TRUNCATE)  \
 \
-  f(PROG, 0x0000, ACCESS)  \
   f(PROG, 0x0010, COMPILE)  \
   f(PROG, 0x0020, EXEC)  \
 \
-  f(DSTREAM, 0x0000, ACCESS)  \
   f(DSTREAM, 0x0010, READ)  \
   f(DSTREAM, 0x0020, WRITE)  \
 \
-  f(TENSOR, 0x0000, ACCESS)  \
   f(TENSOR, 0x0010, ALLOC)  \
   f(TENSOR, 0x0020, META)  \
   f(TENSOR, 0x0030, DATA)  \
@@ -386,15 +381,6 @@ enum {
   UPD_REQ_INVALID = 0x03,
 };
 
-typedef struct upd_req_dir_access_t {
-  unsigned list   : 1;
-  unsigned find   : 1;
-  unsigned add    : 1;
-  unsigned new    : 1;
-  unsigned newdir : 1;
-  unsigned rm     : 1;
-} upd_req_dir_access_t;
-
 typedef struct upd_req_dir_entry_t {
   uint8_t*    name;
   uint64_t    len;
@@ -406,28 +392,11 @@ typedef struct upd_req_dir_entries_t {
   uint64_t              n;
 } upd_req_dir_entries_t;
 
-typedef struct upd_req_prog_access_t {
-  unsigned compile : 1;
-  unsigned exec    : 1;
-} upd_req_prog_access_t;
-
-typedef struct upd_req_stream_access_t {
-  unsigned read     : 1;
-  unsigned write    : 1;
-  unsigned truncate : 1;
-} upd_req_stream_access_t;
-
 typedef struct upd_req_stream_io_t {
   uint64_t offset;
   uint64_t size;
   uint8_t* buf;
 } upd_req_stream_io_t;
-
-typedef struct upd_req_tensor_access_t {
-  unsigned alloc : 1;
-  unsigned meta  : 1;
-  unsigned data  : 1;
-} upd_req_tensor_access_t;
 
 typedef struct upd_req_tensor_meta_t {
   uint8_t           rank;
@@ -456,22 +425,18 @@ struct upd_req_t {
 
   union {
     union {
-      upd_req_dir_access_t  access;
       upd_req_dir_entry_t   entry;
       upd_req_dir_entries_t entries;
     } dir;
     union {
-      upd_req_prog_access_t access;
-      upd_file_t*           exec;
+      upd_file_t* exec;
     } prog;
     union {
-      upd_req_stream_access_t access;
-      upd_req_stream_io_t     io;
+      upd_req_stream_io_t io;
     } stream;
     union {
-      upd_req_tensor_access_t access;
-      upd_req_tensor_meta_t   meta;
-      upd_req_tensor_data_t   data;
+      upd_req_tensor_meta_t meta;
+      upd_req_tensor_data_t data;
     } tensor;
   };
 };
