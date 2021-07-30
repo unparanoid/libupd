@@ -39,6 +39,7 @@ target_sources(libupd
     libupd/msgpack.h
     libupd/path.h
     libupd/pathfind.h
+    libupd/str.h
 )
 target_link_libraries(libupd
   INTERFACE

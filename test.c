@@ -17,6 +17,7 @@
 #include "libupd/msgpack.h"
 #include "libupd/path.h"
 #include "libupd/pathfind.h"
+#include "libupd/str.h"
 
 
 upd_external_t upd = {0};  /* just to avoid linker error */
@@ -41,6 +42,11 @@ void
 test_path_(
   void);
 
+static
+void
+test_str_(
+  void);
+
 
 int main(void) {
   assert((UPD_VER >> 16 & 0xFFFF) == UPD_VER_MAJOR);
@@ -51,6 +57,7 @@ int main(void) {
   test_array_();
   test_buf_();
   test_path_();
+  test_str_();
   return EXIT_SUCCESS;
 }
 
@@ -120,11 +127,9 @@ static void test_memory_(void) {
 }
 
 static void test_path_(void) {
-# define streq_(p, l, v) (utf8ncmp(p, v, l) == 0 && v[l] == 0)
-
   uint8_t      p1[] = "///hell//world//////";
   const size_t l1   = upd_path_normalize(p1, sizeof(p1)-1);
-  assert(streq_(p1, l1, "/hell/world/"));
+  assert(upd_streq_c("/hell/world/", p1, l1));
 
   assert( upd_path_validate_name((uint8_t*) "foo",     3));
   assert(!upd_path_validate_name((uint8_t*) "foo/baz", 7));
@@ -139,6 +144,52 @@ static void test_path_(void) {
   size_t l2 = sizeof(p2)-1;
   assert(utf8cmp(upd_path_basename(p2, &l2), "piyo//////////////") == 0);
   assert(l2 == sizeof("piyo//////////////")-1);
+}
 
-# undef streq_
+static void test_str_(void) {
+  assert( upd_streq(NULL, 0, NULL, 0));
+  assert(!upd_streq("hi", 2, NULL, 0));
+
+  assert( upd_streq("hello", 5, "hello", 5));
+  assert( upd_streq("hello", 4, "hello", 4));
+  assert(!upd_streq("hello", 4, "hello", 5));
+  assert(!upd_streq("hello", 5, "hello", 4));
+
+  assert(!upd_streq("hello", 5, "world", 5));
+  assert(!upd_streq("hello", 4, "world", 4));
+  assert(!upd_streq("hello", 4, "world", 5));
+  assert(!upd_streq("hello", 5, "world", 4));
+
+  assert( upd_streq_c("hello", "hello", 5));
+  assert(!upd_streq_c("hello", "hello", 4));
+  assert(!upd_streq_c("hello", "world", 5));
+  assert(!upd_streq_c("hello", "world", 4));
+
+  assert( upd_streq_c("hell", "hello", 4));
+  assert(!upd_streq_c("hell", "hello", 5));
+  assert(!upd_streq_c("hell", "world", 4));
+  assert(!upd_streq_c("hell", "world", 5));
+
+  assert( upd_strcaseq(NULL, 0, NULL, 0));
+  assert(!upd_strcaseq("hi", 2, NULL, 0));
+
+  assert( upd_strcaseq("HELLO", 5, "heLlo", 5));
+  assert( upd_strcaseq("HELLO", 4, "heLlo", 4));
+  assert(!upd_strcaseq("HELLO", 4, "heLlo", 5));
+  assert(!upd_strcaseq("HELLO", 5, "heLlo", 4));
+
+  assert(!upd_strcaseq("HELLO", 5, "woRld", 5));
+  assert(!upd_strcaseq("HELLO", 4, "woRld", 4));
+  assert(!upd_strcaseq("HELLO", 4, "woRld", 5));
+  assert(!upd_strcaseq("HELLO", 5, "woRld", 4));
+
+  assert( upd_strcaseq_c("HElLO", "hello", 5));
+  assert(!upd_strcaseq_c("HElLO", "hello", 4));
+  assert(!upd_strcaseq_c("HElLO", "world", 5));
+  assert(!upd_strcaseq_c("HElLO", "world", 4));
+
+  assert( upd_strcaseq_c("HELL", "hellO", 4));
+  assert(!upd_strcaseq_c("HELL", "hellO", 5));
+  assert(!upd_strcaseq_c("HELL", "worlD", 4));
+  assert(!upd_strcaseq_c("HELL", "worlD", 5));
 }
