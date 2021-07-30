@@ -14,10 +14,14 @@ typedef struct upd_msgpack_t       upd_msgpack_t;
 typedef struct upd_msgpack_recv_t  upd_msgpack_recv_t;
 
 typedef struct upd_msgpack_field_t upd_msgpack_field_t;
-typedef struct upd_msgpack_fetch_t upd_msgpack_fetch_t;
 
 struct upd_msgpack_t {
   upd_iso_t* iso;
+
+  size_t backlog;
+  size_t maxmem;
+
+  size_t mem;
 
   msgpack_packer   pk;
   msgpack_unpacker upk;
@@ -51,40 +55,20 @@ struct upd_msgpack_recv_t {
 
 struct upd_msgpack_field_t {
   const char* name;
-  bool        any;
 
   const msgpack_object**       obj;
+  const msgpack_object**       any;
   const msgpack_object_map**   map;
   const msgpack_object_array** array;
   intmax_t*                    i;
   uintmax_t*                   ui;
   double*                      f;
   bool*                        b;
-  const uint8_t**              str;
-  size_t*                      len;
-
-  /* don't use the followings in upd_msgpack_find_fields function */
-  upd_file_t** file;
-
-  const msgpack_object* obj_;
-};
-
-struct upd_msgpack_fetch_t {
-  upd_iso_t*            iso;
-  const msgpack_object* obj;
-
-  /* must be alive until upd_msgpack_fetch_fields returned */
-  upd_msgpack_field_t* fields;
-
-  size_t refcnt;
-
-  void* udata;
-  void
-  (*cb)(
-    upd_msgpack_fetch_t* f);
+  const msgpack_object_str**   str;
 };
 
 
+/* Don't forget to fill with zero and set required parameters. */
 HEDLEY_NON_NULL(1)
 static inline
 bool
@@ -133,30 +117,26 @@ upd_msgpack_recv_next(
 
 
 HEDLEY_NON_NULL(1, 2)
-HEDLEY_WARN_UNUSED_RESULT
 static inline
-bool
-upd_msgpack_pathfind(
-  upd_pathfind_t*       pf,
-  const msgpack_object* obj);
+const msgpack_object*
+upd_msgpack_find_obj(
+  const msgpack_object_map* map,
+  const msgpack_object*     needle);
 
 HEDLEY_NON_NULL(1, 2)
-static inline void upd_msgpack_find_fields(
-  const msgpack_object* obj,
-  upd_msgpack_field_t*  f);
+static inline
+const msgpack_object*
+upd_msgpack_find_obj_by_str(
+  const msgpack_object_map* map,
+  const uint8_t*            str,
+  size_t                    len);
 
-/* Don't forget unref fetched files! */
-HEDLEY_NON_NULL(1)
+HEDLEY_NON_NULL(1, 2)
 static inline
 bool
-upd_msgpack_fetch_fields(
-  upd_msgpack_fetch_t* f);
-
-HEDLEY_NON_NULL(1)
-static inline
-bool
-upd_msgpack_fetch_fields_with_dup(
-  const upd_msgpack_fetch_t* src);
+upd_msgpack_find_fields(
+  const msgpack_object_map*  map,
+  const upd_msgpack_field_t* field);
 
 
 HEDLEY_NON_NULL(1, 2)
@@ -186,13 +166,11 @@ void
 upd_msgpack_recv_read_cb_(
   upd_req_t* req);
 
-static inline
-void
-upd_msgpack_fetch_fields_pathfind_cb_(
-  upd_pathfind_t* pf);
-
 
 static inline bool upd_msgpack_init(upd_msgpack_t* mpk) {
+  assert(mpk->iso);
+
+  mpk->mem = 1024;
   if (HEDLEY_UNLIKELY(!msgpack_unpacker_init(&mpk->upk, 1024))) {
     return false;
   }
@@ -218,9 +196,15 @@ static inline bool upd_msgpack_unpack(
     upd_msgpack_t* mpk, const upd_req_stream_io_t* io) {
   upd_iso_t* iso = mpk->iso;
 
+  if (HEDLEY_UNLIKELY(mpk->maxmem && mpk->mem+io->size > mpk->maxmem)) {
+    return false;
+  }
+
   if (HEDLEY_UNLIKELY(!msgpack_unpacker_reserve_buffer(&mpk->upk, io->size))) {
     return false;
   }
+  mpk->mem += io->size;
+
   memcpy(msgpack_unpacker_buffer(&mpk->upk), io->buf, io->size);
   msgpack_unpacker_buffer_consumed(&mpk->upk, io->size);
 
@@ -231,13 +215,22 @@ static inline bool upd_msgpack_unpack(
     }
     msgpack_unpacked_init(upkd);
 
-    const int ret = msgpack_unpacker_next(&mpk->upk, upkd);
+    size_t consumed = 0;
+    const int ret =
+      msgpack_unpacker_next_with_size(&mpk->upk, upkd, &consumed);
+    mpk->mem -= consumed;
+
     switch (ret) {
     case MSGPACK_UNPACK_SUCCESS:
-      if (HEDLEY_UNLIKELY(!upd_array_insert(&mpk->in, upkd, SIZE_MAX))) {
-        return false;
+      if (HEDLEY_LIKELY(!mpk->backlog || mpk->in.n < mpk->backlog)) {
+        if (HEDLEY_LIKELY(upd_array_insert(&mpk->in, upkd, SIZE_MAX))) {
+          continue;
+        }
       }
-      continue;
+      msgpack_unpacked_destroy(upkd);
+      upd_iso_unstack(iso, upkd);
+      return false;
+
     case MSGPACK_UNPACK_CONTINUE:
     case MSGPACK_UNPACK_PARSE_ERROR:
       msgpack_unpacked_destroy(upkd);
@@ -302,181 +295,106 @@ static inline void upd_msgpack_recv_next(upd_msgpack_recv_t* recv) {
 }
 
 
-static inline bool upd_msgpack_pathfind(
-    upd_pathfind_t* pf, const msgpack_object* obj) {
-  upd_iso_t* iso = pf->base? pf->base->iso: pf->iso;
-
-  if (HEDLEY_UNLIKELY(obj == NULL)) {
-    return false;
-  }
-
-  switch (obj->type) {
-  case MSGPACK_OBJECT_POSITIVE_INTEGER: {
-    pf->base = upd_file_get(iso, obj->via.u64);
-    pf->len  = 0;
-    pf->cb(pf);
-  } return true;
-
-  case MSGPACK_OBJECT_STR: {
-    pf->path = (uint8_t*) obj->via.str.ptr;
-    pf->len  = obj->via.str.size;
-    upd_pathfind(pf);
-  } return true;
-
-  default:
-    return false;
-  }
-}
-
-static inline void upd_msgpack_find_fields(
-    const msgpack_object* obj, upd_msgpack_field_t* f) {
-  if (HEDLEY_UNLIKELY(obj == NULL || obj->type != MSGPACK_OBJECT_MAP)) {
-    return;
-  }
-  const msgpack_object_map* map = &obj->via.map;
-  while (f->name) {
-    const size_t flen = utf8size_lazy(f->name);
-
-    for (size_t i = 0; i < map->size; ++i) {
-      const msgpack_object* k = &map->ptr[i].key;
-      const msgpack_object* v = &map->ptr[i].val;
-      if (HEDLEY_UNLIKELY(k->type != MSGPACK_OBJECT_STR)) {
-        continue;
-      }
-      const char*  ks    = k->via.str.ptr;
-      const size_t kslen = k->via.str.size;
-
-      const bool match = flen == kslen && utf8ncmp(f->name, ks, kslen) == 0;
-      if (HEDLEY_LIKELY(!match)) {
-        continue;
-      }
-      bool used = false;
-      switch (v->type) {
-      case MSGPACK_OBJECT_POSITIVE_INTEGER:
-        if (f->ui) {
-          *f->ui = v->via.u64;
-          used   = true;
-        }
-        if (v->via.u64 > INTMAX_MAX) {
-          break;
-        }
-        HEDLEY_FALL_THROUGH;
-
-      case MSGPACK_OBJECT_NEGATIVE_INTEGER:
-        if (f->i) {
-          *f->i = v->via.i64;
-          used  = true;
-        }
-        break;
-
-      case MSGPACK_OBJECT_FLOAT32:
-      case MSGPACK_OBJECT_FLOAT64:
-        if (f->f) {
-          *f->f = v->via.f64;
-          used  = true;
-        }
-        break;
-
-      case MSGPACK_OBJECT_BOOLEAN:
-        if (f->b) {
-          *f->b = v->via.boolean;
-          used  = true;
-        }
-        break;
-
-      case MSGPACK_OBJECT_STR:
-        if (f->str) {
-          assert(f->len);
-          *f->str = (uint8_t*) v->via.str.ptr;
-          *f->len = v->via.str.size;
-          used    = true;
-        }
-        break;
-
-      case MSGPACK_OBJECT_MAP:
-        if (f->map) {
-          *f->map = &v->via.map;
-          used    = true;
-        }
-        break;
-
-      case MSGPACK_OBJECT_ARRAY:
-        if (f->array) {
-          *f->array = &v->via.array;
-          used      = true;
-        }
-        break;
-
-      default:
-        break;
-      }
-      f->obj_ = v;
-      if (used || f->any) {
-        if (f->obj) *f->obj = f->obj_;
-      }
+static inline const msgpack_object* upd_msgpack_find_obj(
+    const msgpack_object_map* map, const msgpack_object* needle) {
+  for (size_t i = 0; i < map->size; ++i) {
+    const msgpack_object_kv* kv = &map->ptr[i];
+    if (HEDLEY_UNLIKELY(kv->key.type != MSGPACK_OBJECT_STR)) {
+      continue;
     }
-    ++f;
-  }
-}
-
-static inline bool upd_msgpack_fetch_fields(upd_msgpack_fetch_t* f) {
-  upd_iso_t* iso = f->iso;
-
-  f->refcnt = 1;
-  if (HEDLEY_LIKELY(f->obj)) {
-    upd_msgpack_find_fields(f->obj, f->fields);
-  }
-
-  const upd_msgpack_field_t* fi = f->fields;
-  while (fi->name) {
-    if (fi->file) {
-      if (HEDLEY_UNLIKELY(!fi->obj_)) {
-        goto SKIP;
-      }
-      if (fi->obj) {
-        *fi->obj = fi->obj_;
-      }
-
-      upd_pathfind_t* pf = upd_iso_stack(iso, sizeof(*pf)+sizeof(fi->file));
-      if (HEDLEY_UNLIKELY(pf == NULL)) {
-        return false;
-      }
-      *pf = (upd_pathfind_t) {
-        .iso   = iso,
-        .udata = f,
-        .cb    = upd_msgpack_fetch_fields_pathfind_cb_,
-      };
-      *(upd_file_t***) (pf+1) = fi->file;
-
-      ++f->refcnt;
-      if (HEDLEY_UNLIKELY(!upd_msgpack_pathfind(pf, fi->obj_))) {
-        --f->refcnt;
-        goto SKIP;
-      }
+    if (HEDLEY_UNLIKELY(msgpack_object_equal(kv->key, *needle))) {
+      return &kv->val;
     }
-SKIP:
-    ++fi;
   }
-  if (HEDLEY_UNLIKELY(--f->refcnt == 0)) {
-    f->cb(f);
-  }
-  return true;
+  return NULL;
 }
 
-static inline bool upd_msgpack_fetch_fields_with_dup(
-    const upd_msgpack_fetch_t* src) {
-  upd_iso_t* iso = src->iso;
+static inline const msgpack_object* upd_msgpack_find_obj_by_str(
+    const msgpack_object_map* map, const uint8_t* name, size_t len) {
+  return upd_msgpack_find_obj(map, &(msgpack_object) {
+      .type = MSGPACK_OBJECT_STR,
+      .via  = { .str = {
+        .ptr  = (char*) name,
+        .size = len,
+      }, },
+    });
+}
 
-  upd_msgpack_fetch_t* f = upd_iso_stack(iso, sizeof(*f));
-  if (HEDLEY_UNLIKELY(f == NULL)) {
-    return false;
+static inline bool upd_msgpack_find_fields(
+    const msgpack_object_map* map, const upd_msgpack_field_t* field) {
+  while (field->name) {
+    const upd_msgpack_field_t* f = field++;
+
+    const msgpack_object* v = upd_msgpack_find_obj_by_str(
+      map, (uint8_t*) f->name, utf8size_lazy(f->name));
+    if (v == NULL) continue;
+
+    bool used = false;
+    if (f->any) {
+      *f->any = v;
+      used    = true;
+    }
+    switch (v->type) {
+    case MSGPACK_OBJECT_POSITIVE_INTEGER:
+      if (f->ui) {
+        *f->ui = v->via.u64;
+        used   = true;
+      }
+      if (v->via.u64 > INTMAX_MAX) {
+        break;
+      }
+      HEDLEY_FALL_THROUGH;
+
+    case MSGPACK_OBJECT_NEGATIVE_INTEGER:
+      if (f->i) {
+        *f->i = v->via.i64;
+        used  = true;
+      }
+      break;
+
+    case MSGPACK_OBJECT_FLOAT32:
+    case MSGPACK_OBJECT_FLOAT64:
+      if (f->f) {
+        *f->f = v->via.f64;
+        used  = true;
+      }
+      break;
+
+    case MSGPACK_OBJECT_BOOLEAN:
+      if (f->b) {
+        *f->b = v->via.boolean;
+        used  = true;
+      }
+      break;
+
+    case MSGPACK_OBJECT_STR:
+      if (f->str) {
+        *f->str = &v->via.str;
+        used    = true;
+      }
+      break;
+
+    case MSGPACK_OBJECT_MAP:
+      if (f->map) {
+        *f->map = &v->via.map;
+        used    = true;
+      }
+      break;
+
+    case MSGPACK_OBJECT_ARRAY:
+      if (f->array) {
+        *f->array = &v->via.array;
+        used      = true;
+      }
+      break;
+
+    default:
+      break;
+    }
+    if (HEDLEY_UNLIKELY(!used)) {
+      return false;
+    }
   }
-  *f = *src;
-  if (HEDLEY_UNLIKELY(!upd_msgpack_fetch_fields(f))) {
-    upd_iso_unstack(iso, f);
-    return false;
-  }
-  return true;
 }
 
 
@@ -544,21 +462,4 @@ static inline void upd_msgpack_recv_read_cb_(upd_req_t* req) {
 ABORT:
   recv->ok = false;
   recv->cb(recv);
-}
-
-
-static inline void upd_msgpack_fetch_fields_pathfind_cb_(upd_pathfind_t* pf) {
-  upd_file_t**         file = *(void**) (pf+1);
-  upd_iso_t*           iso  = pf->iso;
-  upd_msgpack_fetch_t* f    = pf->udata;
-
-  *file = pf->len? NULL: pf->base;
-  upd_iso_unstack(iso, pf);
-
-  if (HEDLEY_LIKELY(*file)) {
-    upd_file_ref(*file);
-  }
-  if (HEDLEY_UNLIKELY(--f->refcnt == 0)) {
-    f->cb(f);
-  }
 }
