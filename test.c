@@ -223,12 +223,14 @@ static void test_yaml_(void) {
   intmax_t  vim_i  = 0, emacs_i  = 0;
   uintmax_t vim_ui = 0, emacs_ui = 0;
   double    vim_f  = 0, emacs_f  = 0;
+
+  /* When a value with incompatible type found, returns its name otherwise NULL.  */
   assert(!upd_yaml_find_fields_from_root(&doc, (upd_yaml_field_t[]) {
-      { .name = "cat", .str = &cat, },
-      { .name = "dog", .str = &dog, },
+      { .name = "cat", .required = true,  .str = &cat, },
+      { .name = "dog", .required = false, .str = &dog, },
       { .name = "vim",    .str = &vim,   .i = &vim_i,   .ui = &vim_ui,   .f = &vim_f,   },
       { .name = "emacs",  .str = &emacs, .i = &emacs_i, .ui = &emacs_ui, .f = &emacs_f, },
-      { .name = "vscode", .str = &vscode },
+      { .name = "vscode", .str = &vscode, },
       { NULL },
     }));
 

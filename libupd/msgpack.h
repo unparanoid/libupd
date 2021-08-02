@@ -55,6 +55,7 @@ struct upd_msgpack_recv_t {
 
 struct upd_msgpack_field_t {
   const char* name;
+  bool        required;
 
   const msgpack_object**       obj;
   const msgpack_object**       any;
@@ -133,7 +134,7 @@ upd_msgpack_find_obj_by_str(
 
 HEDLEY_NON_NULL(1, 2)
 static inline
-bool
+const char*
 upd_msgpack_find_fields(
   const msgpack_object_map*  map,
   const upd_msgpack_field_t* field);
@@ -320,14 +321,17 @@ static inline const msgpack_object* upd_msgpack_find_obj_by_str(
     });
 }
 
-static inline bool upd_msgpack_find_fields(
-    const msgpack_object_map* map, const upd_msgpack_field_t* field) {
-  while (field->name) {
-    const upd_msgpack_field_t* f = field++;
-
+static inline const char* upd_msgpack_find_fields(
+    const msgpack_object_map* map, const upd_msgpack_field_t* f) {
+  for (; f; ++f) {
     const msgpack_object* v = upd_msgpack_find_obj_by_str(
       map, (uint8_t*) f->name, utf8size_lazy(f->name));
-    if (v == NULL) continue;
+    if (HEDLEY_UNLIKELY(v == NULL)) {
+      if (HEDLEY_UNLIKELY(f->required)) {
+        return f->name;
+      }
+      continue;
+    }
 
     bool used = false;
     if (f->any) {
@@ -392,9 +396,10 @@ static inline bool upd_msgpack_find_fields(
       break;
     }
     if (HEDLEY_UNLIKELY(!used)) {
-      return false;
+      return f->name;
     }
   }
+  return NULL;
 }
 
 

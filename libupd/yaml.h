@@ -17,6 +17,7 @@
 
 typedef struct upd_yaml_field_t {
   const char* name;
+  bool        required;
 
   bool*      b;
   uintmax_t* ui;
@@ -114,6 +115,9 @@ static inline const char* upd_yaml_find_fields(
     const yaml_node_t* item = upd_yaml_find_node_by_name(
       doc, node, (uint8_t*) f->name, utf8size_lazy(f->name));
     if (HEDLEY_UNLIKELY(item == NULL)) {
+      if (HEDLEY_UNLIKELY(f->required)) {
+        return f->name;
+      }
       continue;
     }
 
