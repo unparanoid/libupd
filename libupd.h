@@ -10,7 +10,7 @@
 
 
 #define UPD_VER_MAJOR UINT16_C(0)
-#define UPD_VER_MINOR UINT16_C(4)
+#define UPD_VER_MINOR UINT16_C(5)
 
 #define UPD_VER  \
   ((UPD_VER_MAJOR) << 16 | UPD_VER_MINOR)
@@ -62,8 +62,9 @@ void
 enum {
   /* upd_iso_status_t */
   UPD_ISO_PANIC    = -1,
-  UPD_ISO_SHUTDOWN =  0,
-  UPD_ISO_REBOOT   =  1,
+  UPD_ISO_RUNNING  =  0,
+  UPD_ISO_SHUTDOWN =  1,
+  UPD_ISO_REBOOT   =  2,
 };
 
 HEDLEY_NON_NULL(1)
@@ -202,6 +203,8 @@ struct upd_file_t {
 
   uint8_t* param;
   uint64_t paramlen;
+
+  upd_file_t* backend;  /* unref occurs when this file deinit */
 
   /* filled by iso */
   upd_file_id_t id;
@@ -472,16 +475,16 @@ enum {
   /* upd_tensor_type_t */
   UPD_TENSOR_U8  = 0x00,
   UPD_TENSOR_U16 = 0x01,
-  UPD_TENSOR_FLT = 0x10,
-  UPD_TENSOR_DBL = 0x11,
+  UPD_TENSOR_F32 = 0x10,
+  UPD_TENSOR_F64 = 0x11,
 };
 
 static inline uint64_t upd_tensor_type_sizeof(upd_tensor_type_t t) {
   switch (t) {
   case UPD_TENSOR_U8:  return sizeof(uint8_t);
   case UPD_TENSOR_U16: return sizeof(uint16_t);
-  case UPD_TENSOR_FLT: return sizeof(float);
-  case UPD_TENSOR_DBL: return sizeof(double);
+  case UPD_TENSOR_F32: return sizeof(float);
+  case UPD_TENSOR_F64: return sizeof(double);
   }
   return 0;
 }
