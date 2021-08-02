@@ -12,6 +12,11 @@ target_sources(hedley
 )
 
 
+# ---- libyaml (https://github.com/yaml/libyaml) ----
+add_subdirectory(libyaml)
+add_library(libyaml ALIAS yaml)
+
+
 # ---- msgpack-c (https://github.com/msgpack/msgpack-c) ----
 set(MSGPACK_ENABLE_STATIC  ON)
 set(MSGPACK_BUILD_EXAMPLES OFF)

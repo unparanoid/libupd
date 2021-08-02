@@ -18,6 +18,7 @@
 #include "libupd/path.h"
 #include "libupd/pathfind.h"
 #include "libupd/str.h"
+#include "libupd/yaml.h"
 
 
 upd_external_t upd = {0};  /* just to avoid linker error */
@@ -47,6 +48,11 @@ void
 test_str_(
   void);
 
+static
+void
+test_yaml_(
+  void);
+
 
 int main(void) {
   assert((UPD_VER >> 16 & 0xFFFF) == UPD_VER_MAJOR);
@@ -58,6 +64,7 @@ int main(void) {
   test_buf_();
   test_path_();
   test_str_();
+  test_yaml_();
   return EXIT_SUCCESS;
 }
 
@@ -192,4 +199,58 @@ static void test_str_(void) {
   assert(!upd_strcaseq_c("HELL", "hellO", 5));
   assert(!upd_strcaseq_c("HELL", "worlD", 4));
   assert(!upd_strcaseq_c("HELL", "worlD", 5));
+}
+
+static void test_yaml_(void) {
+  const uint8_t case1[] =
+    "cat  : kawaii\n"
+    "dog  : noisy\n"
+    "vim  : 10000\n"
+    "emacs: -100.32\n";
+  const uint8_t case2[] =
+    "hello: world\n"
+    "  this: is invalid\n";
+
+  yaml_document_t doc;
+  assert(upd_yaml_parse(&doc, case1, sizeof(case1)-1));
+
+  const yaml_node_t* cat    = NULL;
+  const yaml_node_t* dog    = NULL;
+  const yaml_node_t* vim    = NULL;
+  const yaml_node_t* emacs  = NULL;
+  const yaml_node_t* vscode = NULL;
+
+  intmax_t  vim_i  = 0, emacs_i  = 0;
+  uintmax_t vim_ui = 0, emacs_ui = 0;
+  double    vim_f  = 0, emacs_f  = 0;
+  assert(!upd_yaml_find_fields_from_root(&doc, (upd_yaml_field_t[]) {
+      { .name = "cat", .str = &cat, },
+      { .name = "dog", .str = &dog, },
+      { .name = "vim",    .str = &vim,   .i = &vim_i,   .ui = &vim_ui,   .f = &vim_f,   },
+      { .name = "emacs",  .str = &emacs, .i = &emacs_i, .ui = &emacs_ui, .f = &emacs_f, },
+      { .name = "vscode", .str = &vscode },
+      { NULL },
+    }));
+
+  assert(cat);
+  assert(upd_streq_c("kawaii", cat->data.scalar.value, cat->data.scalar.length));
+
+  assert(dog);
+  assert(upd_streq_c("noisy", dog->data.scalar.value, dog->data.scalar.length));
+
+  assert(vim);
+  assert(vim_i  == 10000);
+  assert(vim_ui == 10000);
+  assert(vim_f  == 10000);
+
+  assert(emacs);
+  assert(emacs_i  == 0);
+  assert(emacs_ui == 0);
+  assert(emacs_f  == -100.32);
+
+  assert(vscode == NULL);
+
+  yaml_document_delete(&doc);
+
+  assert(!upd_yaml_parse(&doc, case2, sizeof(case2)-1));
 }

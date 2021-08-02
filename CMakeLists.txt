@@ -40,11 +40,13 @@ target_sources(libupd
     libupd/path.h
     libupd/pathfind.h
     libupd/str.h
+    libupd/yaml.h
 )
 target_link_libraries(libupd
   INTERFACE
     hedley
     msgpackc
+    yaml
     utf8.h
 )
 
