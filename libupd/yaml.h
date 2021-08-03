@@ -69,6 +69,10 @@ upd_yaml_find_fields_from_root(
 
 static inline bool upd_yaml_parse(
     yaml_document_t* doc, const uint8_t* str, size_t len) {
+  if (HEDLEY_UNLIKELY(len == 0)) {
+    return false;
+  }
+
   yaml_parser_t parser = {0};
   if (HEDLEY_UNLIKELY(!yaml_parser_initialize(&parser))) {
     return false;
@@ -88,7 +92,9 @@ static inline const yaml_node_t* upd_yaml_find_node_by_name(
     const yaml_node_t* map,
     const uint8_t*     name,
     size_t             len) {
-  assert(map->type == YAML_MAPPING_NODE);
+  if (HEDLEY_UNLIKELY(map->type != YAML_MAPPING_NODE)) {
+    return NULL;
+  }
 
   const yaml_node_pair_t* itr = map->data.mapping.pairs.start;
   const yaml_node_pair_t* end = map->data.mapping.pairs.top;
@@ -103,7 +109,7 @@ static inline const yaml_node_t* upd_yaml_find_node_by_name(
       return yaml_document_get_node(doc, itr->value);
     }
   }
-  return false;
+  return NULL;
 }
 
 
