@@ -323,7 +323,7 @@ static inline const msgpack_object* upd_msgpack_find_obj_by_str(
 
 static inline const char* upd_msgpack_find_fields(
     const msgpack_object_map* map, const upd_msgpack_field_t* f) {
-  for (; f; ++f) {
+  for (; f->name; ++f) {
     const msgpack_object* v = upd_msgpack_find_obj_by_str(
       map, (uint8_t*) f->name, utf8size_lazy(f->name));
     if (HEDLEY_UNLIKELY(v == NULL)) {
