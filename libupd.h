@@ -470,7 +470,6 @@ static inline upd_req_t* upd_req_with_dup(const upd_req_t* src) {
 
 
 /* ---- TENSOR TYPE ---- */
-
 enum {
   /* upd_tensor_type_t */
   UPD_TENSOR_U8  = 0x00,
@@ -478,16 +477,6 @@ enum {
   UPD_TENSOR_F32 = 0x10,
   UPD_TENSOR_F64 = 0x11,
 };
-
-static inline uint64_t upd_tensor_type_sizeof(upd_tensor_type_t t) {
-  switch (t) {
-  case UPD_TENSOR_U8:  return sizeof(uint8_t);
-  case UPD_TENSOR_U16: return sizeof(uint16_t);
-  case UPD_TENSOR_F32: return sizeof(float);
-  case UPD_TENSOR_F64: return sizeof(double);
-  }
-  return 0;
-}
 
 
 /* ---- IMPLEMENTATIONS FOR EXTERNAL DRIVERS ---- */

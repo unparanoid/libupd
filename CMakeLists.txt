@@ -40,6 +40,7 @@ target_sources(libupd
     libupd/path.h
     libupd/pathfind.h
     libupd/str.h
+    libupd/tensor.h
     libupd/yaml.h
 )
 target_link_libraries(libupd

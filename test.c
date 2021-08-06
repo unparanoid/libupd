@@ -1,6 +1,7 @@
 #undef NDEBUG
 
 #include <assert.h>
+#include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -18,6 +19,7 @@
 #include "libupd/path.h"
 #include "libupd/pathfind.h"
 #include "libupd/str.h"
+#include "libupd/tensor.h"
 #include "libupd/yaml.h"
 
 
@@ -50,6 +52,11 @@ test_str_(
 
 static
 void
+test_tensor_(
+  void);
+
+static
+void
 test_yaml_(
   void);
 
@@ -64,6 +71,7 @@ int main(void) {
   test_buf_();
   test_path_();
   test_str_();
+  test_tensor_();
   test_yaml_();
   return EXIT_SUCCESS;
 }
@@ -199,6 +207,27 @@ static void test_str_(void) {
   assert(!upd_strcaseq_c("HELL", "hellO", 5));
   assert(!upd_strcaseq_c("HELL", "worlD", 4));
   assert(!upd_strcaseq_c("HELL", "worlD", 5));
+}
+
+static void test_tensor_(void) {
+  const float  in_f32[10] = {.1, .2, .3, .4, .5, .6, .7, .8, .9, 1.};
+  const double in_f64[10] = {.1, .2, .3, .4, .5, .6, .7, .8, .9, 1.};
+
+  uint16_t out[10];
+  upd_tensor_conv_f32_to_u16(out, in_f32, 10);
+  for (size_t i = 0; i < 10; ++i) {
+    assert(fabs(out[i] - in_f32[i]*UINT16_MAX) < 1);
+  }
+
+  upd_tensor_conv_f64_to_u16(out, in_f64, 10);
+  for (size_t i = 0; i < 10; ++i) {
+    assert(fabs(out[i] - in_f64[i]*UINT16_MAX) < 1);
+  }
+
+  assert(upd_tensor_count_scalars(&(upd_req_tensor_meta_t) {
+      .rank = 6,
+      .reso = (uint32_t[]) { 1, 100, 200, 300, 400, 500, }
+    }) == UINTMAX_C(100)*200*300*400*500);
 }
 
 static void test_yaml_(void) {
