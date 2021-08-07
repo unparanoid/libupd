@@ -159,6 +159,18 @@ static void test_path_(void) {
   size_t l2 = sizeof(p2)-1;
   assert(utf8cmp(upd_path_basename(p2, &l2), "piyo//////////////") == 0);
   assert(l2 == sizeof("piyo//////////////")-1);
+
+  uint8_t      p3[] = "/a///b/.//./c/././d";
+  const size_t l3   = upd_path_normalize(p3, sizeof(p3)-1);
+  assert(upd_streq_c("/a/b/c/d", p3, l3));
+
+  uint8_t      p4[] = "/a///../b//..////c/d/";
+  const size_t l4   = upd_path_normalize(p4, sizeof(p4)-1);
+  assert(upd_streq_c("/c/d/", p4, l4));
+
+  uint8_t      p5[] = "emacs//.//..//vim/././is/./not/..//superior/./to///vim/../vscode/";
+  const size_t l5   = upd_path_normalize(p5, sizeof(p5)-1);
+  assert(upd_streq_c("vim/is/superior/to/vscode/", p5, l5));
 }
 
 static void test_str_(void) {
