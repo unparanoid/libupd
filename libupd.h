@@ -10,7 +10,7 @@
 
 
 #define UPD_VER_MAJOR UINT16_C(0)
-#define UPD_VER_MINOR UINT16_C(5)
+#define UPD_VER_MINOR UINT16_C(6)
 
 #define UPD_VER  \
   ((UPD_VER_MAJOR) << 16 | UPD_VER_MINOR)
@@ -139,8 +139,6 @@ struct upd_driver_t {
   const uint8_t*       name;
   const upd_req_cat_t* cats;
 
-  uint64_t uncache_period;
-
   struct {
     unsigned npoll    : 1;
     unsigned preproc  : 1;
@@ -204,17 +202,16 @@ struct upd_file_t {
   uint8_t* param;
   uint64_t paramlen;
 
-  upd_file_t* backend;  /* unref occurs when this file deinit */
+  upd_file_t* backend;
 
-  /* filled by iso */
+  /* used by iso */
   upd_file_id_t id;
   uint64_t      refcnt;
-  uint64_t      last_update;
-  uint64_t      last_req;
-  uint64_t      last_uncache;
+  uint64_t      last_touch;
 
-  /* filled by driver */
+  /* used by driver */
   const uint8_t* mimetype;
+  uint64_t       cache;  /* estimated cache size in bytes */
   void*          ctx;
 };
 
@@ -448,7 +445,7 @@ HEDLEY_NON_NULL(1)
 HEDLEY_WARN_UNUSED_RESULT
 static inline bool upd_req(upd_req_t* req) {
   upd_file_t* f = req->file;
-  f->last_req = upd_iso_now(f->iso);
+  f->last_touch = upd_iso_now(f->iso);
   return req->file->driver->handle(req);
 }
 
