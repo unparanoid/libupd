@@ -7,7 +7,7 @@ project(libupd C)
 include(CTest)
 include(TestBigEndian)
 
-add_subdirectory(thirdparty)
+add_subdirectory(thirdparty EXCLUDE_FROM_ALL)
 
 
 # ---- env check ----
