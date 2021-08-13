@@ -10,7 +10,7 @@
 
 
 #define UPD_VER_MAJOR UINT16_C(0)
-#define UPD_VER_MINOR UINT16_C(6)
+#define UPD_VER_MINOR UINT16_C(7)
 
 #define UPD_VER  \
   ((UPD_VER_MAJOR) << 16 | UPD_VER_MINOR)
@@ -355,16 +355,14 @@ static inline upd_file_lock_t* upd_file_lock_with_dup(
   f(STREAM, 0x0020, WRITE)  \
   f(STREAM, 0x0030, TRUNCATE)  \
 \
-  f(PROG, 0x0010, COMPILE)  \
-  f(PROG, 0x0020, EXEC)  \
+  f(PROG, 0x0010, EXEC)  \
 \
   f(DSTREAM, 0x0010, READ)  \
   f(DSTREAM, 0x0020, WRITE)  \
 \
-  f(TENSOR, 0x0010, ALLOC)  \
-  f(TENSOR, 0x0020, META)  \
-  f(TENSOR, 0x0030, DATA)  \
-  f(TENSOR, 0x0038, FLUSH)
+  f(TENSOR, 0x0010, META)  \
+  f(TENSOR, 0x0020, DATA)  \
+  f(TENSOR, 0x0028, FLUSH)
 
 enum {
 # define each_(i, N) UPD_REQ_##N = i,
@@ -396,14 +394,14 @@ typedef struct upd_req_stream_io_t {
   uint64_t offset;
   uint64_t size;
   uint8_t* buf;
+
+  unsigned tail : 1;
 } upd_req_stream_io_t;
 
 typedef struct upd_req_tensor_meta_t {
   uint8_t           rank;
   upd_tensor_type_t type;
   uint32_t*         reso;
-
-  unsigned inplace : 1;
 } upd_req_tensor_meta_t;
 
 typedef struct upd_req_tensor_data_t {
