@@ -171,6 +171,15 @@ static void test_path_(void) {
   uint8_t      p5[] = "emacs//.//..//vim/././is/./not/..//superior/./to///vim/../vscode/";
   const size_t l5   = upd_path_normalize(p5, sizeof(p5)-1);
   assert(upd_streq_c("vim/is/superior/to/vscode/", p5, l5));
+
+  uint8_t      p6[] = "/../this/is/invalid";
+  const size_t l6   = upd_path_normalize(p6, sizeof(p6)-1);
+  assert(l6 == 0);
+
+  uint8_t      p7[] = "../this/../is/../../valid/../../A";
+  const size_t l7   = upd_path_normalize(p7, sizeof(p7)-2);
+  assert(upd_streq_c("../../../", p7, l7));
+  assert(p7[sizeof(p7)-2] == 'A');  /* canary check */
 }
 
 static void test_str_(void) {

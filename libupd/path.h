@@ -74,6 +74,7 @@ static inline size_t upd_path_normalize(uint8_t* path, size_t len) {
   uint8_t* r    = path + upd_path_drop_trailing_slash(path, len);
   uint8_t* l    = r-1;
 
+  /* try to remove '..' and '.' */
   size_t up = 0;
   for (; path <= l; --l) {
     if (HEDLEY_UNLIKELY(l == path || *(l-1) == '/')) {
@@ -97,7 +98,25 @@ static inline size_t upd_path_normalize(uint8_t* path, size_t len) {
       r = l-1;
     }
   }
-  return tail-path;
+  len = tail-path;
+  if (HEDLEY_UNLIKELY(len && path[0] == '/' && up > 0)) {
+    return 0;
+  }
+
+  /* recover '..' */
+  l = path + len - 1;
+  r = l + up*3;
+  if (up > 0) {
+    for (; path <= l; --l, --r) {
+      *r = *l;
+    }
+    for (size_t i = 0; i < up; ++i) {
+      utf8ncpy(path+i*3, "../", 3);
+    }
+  }
+  len += up*3;
+
+  return len;
 }
 
 static inline bool upd_path_validate_name(const uint8_t* name, size_t len) {
