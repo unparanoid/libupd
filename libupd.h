@@ -341,7 +341,8 @@ static inline upd_file_lock_t* upd_file_lock_with_dup(
   f(0x0002, STREAM)  \
   f(0x0003, PROG)  \
   f(0x0004, DSTREAM)  \
-  f(0x0005, TENSOR)
+  f(0x0005, TENSOR)  \
+  f(0xffff, PRIV)
 
 #define UPD_REQ_TYPE_EACH(f)  \
   f(DIR, 0x0010, LIST)  \
@@ -379,6 +380,9 @@ enum {
   UPD_REQ_INVALID = 0x03,
 };
 
+#define UPD_REQ_PRIV_SIZE 64
+
+
 typedef struct upd_req_dir_entry_t {
   uint8_t*    name;
   uint64_t    len;
@@ -390,6 +394,7 @@ typedef struct upd_req_dir_entries_t {
   uint64_t              n;
 } upd_req_dir_entries_t;
 
+
 typedef struct upd_req_stream_io_t {
   uint64_t offset;
   uint64_t size;
@@ -397,6 +402,7 @@ typedef struct upd_req_stream_io_t {
 
   unsigned tail : 1;
 } upd_req_stream_io_t;
+
 
 typedef struct upd_req_tensor_meta_t {
   uint8_t           rank;
@@ -409,6 +415,7 @@ typedef struct upd_req_tensor_data_t {
   uint8_t* ptr;
   uint64_t size;
 } upd_req_tensor_data_t;
+
 
 struct upd_req_t {
   upd_file_t* file;
@@ -436,6 +443,8 @@ struct upd_req_t {
       upd_req_tensor_meta_t meta;
       upd_req_tensor_data_t data;
     } tensor;
+
+    uint8_t priv[UPD_REQ_PRIV_SIZE];
   };
 };
 
