@@ -143,7 +143,6 @@ struct upd_driver_t {
     unsigned npoll    : 1;
     unsigned preproc  : 1;
     unsigned postproc : 1;
-    unsigned async    : 1;
     unsigned timer    : 1;
   } flags;
 
@@ -293,7 +292,8 @@ HEDLEY_WARN_UNUSED_RESULT
 UPD_DECL_FUNC
 bool
 upd_file_trigger_async(
-  upd_file_t* f);
+  upd_iso_t*    iso,
+  upd_file_id_t id);
 
 HEDLEY_NON_NULL(1)
 HEDLEY_WARN_UNUSED_RESULT
@@ -499,7 +499,7 @@ typedef struct upd_host_t {
     bool (*watch)(upd_file_watch_t* w);
     void (*unwatch)(upd_file_watch_t* w);
     void (*trigger)(upd_file_t* f, upd_file_event_t e);
-    bool (*trigger_async)(upd_file_t* f);
+    bool (*trigger_async)(upd_iso_t* iso, upd_file_id_t id);
     bool (*trigger_timer)(upd_file_t* f, uint64_t dur);
     bool (*lock)(upd_file_lock_t* k);
     void (*unlock)(upd_file_lock_t* k);
@@ -591,8 +591,8 @@ static inline void upd_file_unwatch(upd_file_watch_t* w) {
 static inline void upd_file_trigger(upd_file_t* f, upd_file_event_t e) {
   upd.host->file.trigger(f, e);
 }
-static inline bool upd_file_trigger_async(upd_file_t* f) {
-  return upd.host->file.trigger_async(f);
+static inline bool upd_file_trigger_async(upd_iso_t* iso, upd_file_id_t id) {
+  return upd.host->file.trigger_async(iso, id);
 }
 static inline bool upd_file_trigger_timer(upd_file_t* f, uint64_t dur) {
   return upd.host->file.trigger_timer(f, dur);
