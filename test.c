@@ -228,6 +228,20 @@ static void test_str_(void) {
   assert(!upd_strcaseq_c("HELL", "hellO", 5));
   assert(!upd_strcaseq_c("HELL", "worlD", 4));
   assert(!upd_strcaseq_c("HELL", "worlD", 5));
+
+  static const upd_str_switch_case_t cases[] = {
+    { .str = "A", .i = 0, },
+    { .str = "B", .i = 1, },
+    { .str = "C", .i = 2, },
+    { .str = "c", .i = 3, },
+    { NULL, },
+  };
+  assert(upd_str_switch((uint8_t*) "C", 1, cases) == &cases[2]);
+  assert(upd_str_switch((uint8_t*) "c", 1, cases) == &cases[3]);
+  assert(upd_str_switch((uint8_t*) "Z", 1, cases) == NULL);
+
+  assert(upd_strcase_switch((uint8_t*) "C", 1, cases) == &cases[2]);
+  assert(upd_strcase_switch((uint8_t*) "c", 1, cases) == &cases[2]);
 }
 
 static void test_tensor_(void) {
