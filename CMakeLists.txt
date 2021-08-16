@@ -39,9 +39,12 @@ target_sources(libupd
     libupd/msgpack.h
     libupd/path.h
     libupd/pathfind.h
+    libupd/proto.h
     libupd/str.h
     libupd/tensor.h
     libupd/yaml.h
+
+    libupd/proto/encoder.h
 )
 target_link_libraries(libupd
   INTERFACE
