@@ -17,6 +17,7 @@ typedef struct upd_proto_parse_t upd_proto_parse_t;
 
 typedef enum upd_proto_iface_t {
   UPD_PROTO_ENCODER = 0x0001,
+  UPD_PROTO_OBJECT  = 0x0002,
 } upd_proto_iface_t;
 
 typedef enum upd_proto_cmd_t {
@@ -24,6 +25,12 @@ typedef enum upd_proto_cmd_t {
   UPD_PROTO_ENCODER_INIT,
   UPD_PROTO_ENCODER_FRAME,
   UPD_PROTO_ENCODER_FINALIZE,
+
+  UPD_PROTO_OBJECT_LOCK,
+  UPD_PROTO_OBJECT_LOCKEX,
+  UPD_PROTO_OBJECT_UNLOCK,
+  UPD_PROTO_OBJECT_GET,
+  UPD_PROTO_OBJECT_SET,
 } upd_proto_cmd_t;
 
 /* THIS OBJECT DOESN'T HOLD FILE REFCNT */
@@ -36,6 +43,10 @@ struct upd_proto_msg_t {
     struct {
       upd_file_t* file;
     } encoder_frame;
+    struct {
+      const msgpack_object_array* path;
+      const msgpack_object*       value;
+    } object;
   };
 };
 
@@ -77,6 +88,7 @@ upd_proto_parse_with_dup(
   } while (0)
 
 #include "proto/encoder.h"
+#include "proto/object.h"
 
 
 static inline void upd_proto_parse(upd_proto_parse_t* par) {
@@ -124,6 +136,29 @@ static inline void upd_proto_parse(upd_proto_parse_t* par) {
       msg->cmd = c->i;
 
       upd_proto_parse_encoder(par);
+      goto EXIT;
+    }
+  }
+  if (HEDLEY_UNLIKELY(par->iface & UPD_PROTO_OBJECT)) {
+    if (HEDLEY_UNLIKELY(upd_strcaseq_c("object", iface->ptr, iface->size))) {
+      msg->iface = UPD_PROTO_OBJECT;
+
+      const upd_str_switch_case_t* c =
+        upd_str_switch((uint8_t*) cmd->ptr, cmd->size, (upd_str_switch_case_t[]) {
+            { .str = "lock",   .i = UPD_PROTO_OBJECT_LOCK,   },
+            { .str = "lockex", .i = UPD_PROTO_OBJECT_LOCKEX, },
+            { .str = "unlock", .i = UPD_PROTO_OBJECT_UNLOCK, },
+            { .str = "get",    .i = UPD_PROTO_OBJECT_GET,    },
+            { .str = "set",    .i = UPD_PROTO_OBJECT_SET,    },
+            { NULL, },
+          });
+      if (HEDLEY_UNLIKELY(c == NULL)) {
+        par->err = "unknown command";
+        goto EXIT;
+      }
+      msg->cmd = c->i;
+
+      upd_proto_parse_object(par);
       goto EXIT;
     }
   }

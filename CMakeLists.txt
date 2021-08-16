@@ -45,6 +45,7 @@ target_sources(libupd
     libupd/yaml.h
 
     libupd/proto/encoder.h
+    libupd/proto/object.h
 )
 target_link_libraries(libupd
   INTERFACE
