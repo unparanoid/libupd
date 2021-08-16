@@ -1,13 +1,13 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 
+#include <hedley.h>
 #include <msgpack.h>
+#include <utf8.h>
 
 #include <libupd.h>
-
-#include "array.h"
-#include "pathfind.h"
 
 
 typedef struct upd_msgpack_t       upd_msgpack_t;
@@ -16,18 +16,21 @@ typedef struct upd_msgpack_recv_t  upd_msgpack_recv_t;
 typedef struct upd_msgpack_field_t upd_msgpack_field_t;
 
 struct upd_msgpack_t {
-  upd_iso_t* iso;
-
-  size_t backlog;
   size_t maxmem;
-
   size_t mem;
 
   msgpack_packer   pk;
   msgpack_unpacker upk;
 
-  upd_array_of(msgpack_unpacked*) in;
-  msgpack_sbuffer                 out;
+  msgpack_sbuffer out;
+
+  unsigned busy   : 1;
+  unsigned broken : 1;
+
+  void* udata;
+  void
+  (*cb)(
+    upd_msgpack_t* mpk);
 };
 
 struct upd_msgpack_recv_t {
@@ -69,7 +72,6 @@ struct upd_msgpack_field_t {
 };
 
 
-/* Don't forget to fill with zero and set required parameters. */
 HEDLEY_NON_NULL(1)
 static inline
 bool
@@ -87,14 +89,23 @@ HEDLEY_WARN_UNUSED_RESULT
 static inline
 bool
 upd_msgpack_unpack(
-  upd_msgpack_t*             mpk,
-  const upd_req_stream_io_t* io);
+  upd_msgpack_t* mpk,
+  const uint8_t* buf,
+  size_t         len);
 
 HEDLEY_NON_NULL(1)
 static inline
-msgpack_unpacked*
+bool
 upd_msgpack_pop(
-  upd_msgpack_t* mpk);
+  upd_msgpack_t*    mpk,
+  msgpack_unpacked* upkd);
+
+HEDLEY_NON_NULL(1, 2)
+static inline
+bool
+upd_msgpack_handle(
+  upd_msgpack_t* mpk,
+  upd_req_t*     req);
 
 
 HEDLEY_NON_NULL(1)
@@ -134,6 +145,13 @@ upd_msgpack_find_obj_by_str(
 
 HEDLEY_NON_NULL(1, 2)
 static inline
+const msgpack_object*
+upd_msgpack_find_obj_by_cstr(
+  const msgpack_object_map* map,
+  const char*               str);
+
+HEDLEY_NON_NULL(1, 2)
+static inline
 const char*
 upd_msgpack_find_fields(
   const msgpack_object_map*  map,
@@ -169,9 +187,11 @@ upd_msgpack_recv_read_cb_(
 
 
 static inline bool upd_msgpack_init(upd_msgpack_t* mpk) {
-  assert(mpk->iso);
+  *mpk = (upd_msgpack_t) {
+    .mem    = 1024,
+    .maxmem = SIZE_MAX,
+  };
 
-  mpk->mem = 1024;
   if (HEDLEY_UNLIKELY(!msgpack_unpacker_init(&mpk->upk, 1024))) {
     return false;
   }
@@ -181,68 +201,74 @@ static inline bool upd_msgpack_init(upd_msgpack_t* mpk) {
 }
 
 static inline void upd_msgpack_deinit(upd_msgpack_t* mpk) {
-  upd_iso_t* iso = mpk->iso;
-
-  for (size_t i = 0; i < mpk->in.n; ++i) {
-    msgpack_unpacked* upkd = mpk->in.p[i];
-    msgpack_unpacked_destroy(upkd);
-    upd_iso_unstack(iso, upkd);
-  }
-  upd_array_clear(&mpk->in);
   msgpack_sbuffer_destroy(&mpk->out);
   msgpack_unpacker_destroy(&mpk->upk);
 }
 
 static inline bool upd_msgpack_unpack(
-    upd_msgpack_t* mpk, const upd_req_stream_io_t* io) {
-  upd_iso_t* iso = mpk->iso;
-
-  if (HEDLEY_UNLIKELY(mpk->maxmem && mpk->mem+io->size > mpk->maxmem)) {
+    upd_msgpack_t* mpk, const uint8_t* buf, size_t len) {
+  if (HEDLEY_UNLIKELY(mpk->mem+len > mpk->maxmem)) {
     return false;
   }
 
-  if (HEDLEY_UNLIKELY(!msgpack_unpacker_reserve_buffer(&mpk->upk, io->size))) {
+  if (HEDLEY_UNLIKELY(!msgpack_unpacker_reserve_buffer(&mpk->upk, len))) {
     return false;
   }
-  mpk->mem += io->size;
+  mpk->mem += len;
 
-  memcpy(msgpack_unpacker_buffer(&mpk->upk), io->buf, io->size);
-  msgpack_unpacker_buffer_consumed(&mpk->upk, io->size);
+  memcpy(msgpack_unpacker_buffer(&mpk->upk), buf, len);
+  msgpack_unpacker_buffer_consumed(&mpk->upk, len);
+  return true;
+}
 
-  for (;;) {
-    msgpack_unpacked* upkd = upd_iso_stack(mpk->iso, sizeof(*upkd));
-    if (HEDLEY_UNLIKELY(upkd == NULL)) {
-      return false;
-    }
-    msgpack_unpacked_init(upkd);
+static inline bool upd_msgpack_pop(upd_msgpack_t* mpk, msgpack_unpacked* upkd) {
+  size_t consumed = 0;
+  const int ret = msgpack_unpacker_next_with_size(&mpk->upk, upkd, &consumed);
+  mpk->mem -= consumed;
 
-    size_t consumed = 0;
-    const int ret =
-      msgpack_unpacker_next_with_size(&mpk->upk, upkd, &consumed);
-    mpk->mem -= consumed;
+  switch (ret) {
+  case MSGPACK_UNPACK_SUCCESS:
+    return true;
 
-    switch (ret) {
-    case MSGPACK_UNPACK_SUCCESS:
-      if (HEDLEY_LIKELY(!mpk->backlog || mpk->in.n < mpk->backlog)) {
-        if (HEDLEY_LIKELY(upd_array_insert(&mpk->in, upkd, SIZE_MAX))) {
-          continue;
-        }
-      }
-      msgpack_unpacked_destroy(upkd);
-      upd_iso_unstack(iso, upkd);
-      return false;
+  case MSGPACK_UNPACK_CONTINUE:
+    return false;
 
-    case MSGPACK_UNPACK_CONTINUE:
-    case MSGPACK_UNPACK_PARSE_ERROR:
-      msgpack_unpacked_destroy(upkd);
-      upd_iso_unstack(iso, upkd);
-      return ret == MSGPACK_UNPACK_CONTINUE;
-    }
+  case MSGPACK_UNPACK_PARSE_ERROR:
+    mpk->broken = true;
+    return false;
   }
 }
 
-static inline msgpack_unpacked* upd_msgpack_pop(upd_msgpack_t* ctx) {
-  return upd_array_remove(&ctx->in, 0);
+static inline bool upd_msgpack_handle(upd_msgpack_t* mpk, upd_req_t* req) {
+  upd_req_stream_io_t* io = &req->stream.io;
+
+  switch (req->type) {
+  case UPD_REQ_DSTREAM_WRITE: {
+    if (HEDLEY_UNLIKELY(!upd_msgpack_unpack(mpk, io->buf, io->size))) {
+      req->result = UPD_REQ_NOMEM;
+      return false;
+    }
+    if (HEDLEY_UNLIKELY(!mpk->busy)) {
+      mpk->cb(mpk);
+    }
+    req->result = UPD_REQ_OK;
+    req->cb(req);
+  } return true;
+
+  case UPD_REQ_DSTREAM_READ: {
+    *io = (upd_req_stream_io_t) {
+      .buf  = (uint8_t*) mpk->out.data,
+      .size = mpk->out.size,
+    };
+    uint8_t* ptr = (void*) msgpack_sbuffer_release(&mpk->out);
+    req->result = UPD_REQ_OK;
+    req->cb(req);
+    free(ptr);
+  } return true;
+
+  default:
+    assert(false);
+  }
 }
 
 
@@ -319,6 +345,11 @@ static inline const msgpack_object* upd_msgpack_find_obj_by_str(
         .size = len,
       }, },
     });
+}
+
+static inline const msgpack_object* upd_msgpack_find_obj_by_cstr(
+    const msgpack_object_map* map, const char* str) {
+  return upd_msgpack_find_obj_by_str(map, (uint8_t*) str, utf8size_lazy(str));
 }
 
 static inline const char* upd_msgpack_find_fields(
