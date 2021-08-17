@@ -24,7 +24,7 @@ jobs:
           mkdir -p /tmp/libupd
           cd /tmp/libupd
           cmake -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=${{ matrix.model }} ${{ github.workspace }}
-          make -j VERBOSE=1
+          cmake --build . --verbose --parallel
 
       - name: exec
         run: |
@@ -52,7 +52,7 @@ jobs:
           mkdir -p /tmp/libupd
           cd /tmp/libupd
           cmake -G "NMake Makefiles" -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=${{ matrix.mode }} ${{ github.workspace }}
-          cmake --build . --verbose
+          cmake --build . --verbose --parallel
 
       - name: exec
         run: |
