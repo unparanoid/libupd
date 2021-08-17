@@ -151,6 +151,7 @@ upd_msgpack_find_obj_by_cstr(
   const char*               str);
 
 HEDLEY_NON_NULL(1, 2)
+HEDLEY_WARN_UNUSED_RESULT
 static inline
 const char*
 upd_msgpack_find_fields(

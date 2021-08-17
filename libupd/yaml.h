@@ -52,6 +52,7 @@ upd_yaml_find_node_by_name(
 
 
 HEDLEY_NON_NULL(1, 2, 3)
+HEDLEY_WARN_UNUSED_RESULT
 static inline
 const char*
 upd_yaml_find_fields(
