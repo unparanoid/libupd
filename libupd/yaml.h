@@ -144,18 +144,18 @@ static inline const char* upd_yaml_find_fields(
       const size_t   n = item->data.scalar.length;
 
       if (f->b) {
-        const bool y =
+        const bool yes =
           upd_strcaseq_c("true", s, n) ||
           upd_strcaseq_c("yes",  s, n) ||
           upd_strcaseq_c("y",    s, n) ||
           upd_strcaseq_c("on",   s, n);
-        const bool n =
+        const bool no =
           upd_strcaseq_c("false", s, n) ||
           upd_strcaseq_c("no",    s, n) ||
           upd_strcaseq_c("n",     s, n) ||
           upd_strcaseq_c("off",   s, n);
-        if (y != n) {
-          *f->b = y;
+        if (yes != no) {
+          *f->b = yes;
           used  = true;
         }
       }
