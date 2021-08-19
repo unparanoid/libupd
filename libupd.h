@@ -10,7 +10,7 @@
 
 
 #define UPD_VER_MAJOR UINT16_C(0)
-#define UPD_VER_MINOR UINT16_C(7)
+#define UPD_VER_MINOR UINT16_C(8)
 
 #define UPD_VER  \
   ((UPD_VER_MAJOR) << 16 | UPD_VER_MINOR)
@@ -35,6 +35,7 @@ typedef struct upd_file_watch_t upd_file_watch_t;
 typedef struct upd_file_lock_t  upd_file_lock_t;
 typedef struct upd_driver_t     upd_driver_t;
 typedef struct upd_req_t        upd_req_t;
+typedef struct upd_mutex_t      upd_mutex_t;
 
 typedef uint32_t upd_ver_t;
 typedef int32_t  upd_iso_status_t;
@@ -141,6 +142,7 @@ struct upd_driver_t {
 
   struct {
     unsigned npoll    : 1;
+    unsigned mutex    : 1;
     unsigned preproc  : 1;
     unsigned postproc : 1;
     unsigned timer    : 1;
@@ -302,6 +304,18 @@ bool
 upd_file_trigger_timer(
   upd_file_t* f,
   uint64_t    dur);
+
+HEDLEY_NON_NULL(1)
+UPD_DECL_FUNC
+void
+upd_file_begin_sync(
+  upd_file_t* f);
+
+HEDLEY_NON_NULL(1)
+UPD_DECL_FUNC
+void
+upd_file_end_sync(
+  upd_file_t* f);
 
 HEDLEY_NON_NULL(1)
 HEDLEY_WARN_UNUSED_RESULT
@@ -510,6 +524,8 @@ typedef struct upd_host_t {
     void (*trigger)(upd_file_t* f, upd_file_event_t e);
     bool (*trigger_async)(upd_iso_t* iso, upd_file_id_t id);
     bool (*trigger_timer)(upd_file_t* f, uint64_t dur);
+    void (*begin_sync)(upd_file_t* f);
+    void (*end_sync)(upd_file_t* f);
     bool (*lock)(upd_file_lock_t* k);
     void (*unlock)(upd_file_lock_t* k);
   } file;
@@ -537,6 +553,8 @@ typedef struct upd_host_t {
       .trigger       = upd_file_trigger,  \
       .trigger_async = upd_file_trigger_async,  \
       .trigger_timer = upd_file_trigger_timer,  \
+      .begin_sync    = upd_file_begin_sync,  \
+      .end_sync      = upd_file_end_sync,  \
       .lock          = upd_file_lock,  \
       .unlock        = upd_file_unlock,  \
     },  \
@@ -605,6 +623,12 @@ static inline bool upd_file_trigger_async(upd_iso_t* iso, upd_file_id_t id) {
 }
 static inline bool upd_file_trigger_timer(upd_file_t* f, uint64_t dur) {
   return upd.host->file.trigger_timer(f, dur);
+}
+static inline void upd_file_begin_sync(upd_file_t* f) {
+  upd.host->file.begin_sync(f);
+}
+static inline void upd_file_end_sync(upd_file_t* f) {
+  upd.host->file.end_sync(f);
 }
 static inline bool upd_file_lock(upd_file_lock_t* k) {
   return upd.host->file.lock(k);
