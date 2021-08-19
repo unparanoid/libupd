@@ -380,7 +380,7 @@ enum {
   UPD_REQ_INVALID = 0x03,
 };
 
-#define UPD_REQ_PRIV_SIZE 64
+#define UPD_REQ_PRIV_TYPE(n) ((UPD_REQ_PRIV << 16) | (n))
 
 
 typedef struct upd_req_dir_entry_t {
@@ -444,7 +444,7 @@ struct upd_req_t {
       upd_req_tensor_data_t data;
     } tensor;
 
-    uint8_t priv[UPD_REQ_PRIV_SIZE];
+    uint8_t priv[1];
   };
 };
 
