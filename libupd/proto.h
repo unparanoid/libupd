@@ -227,8 +227,8 @@ static inline void upd_proto_parse_unref_(upd_proto_parse_t* par) {
   par->cb(par);  /* par is freed and not available anymore */
 
   for (size_t i = 0; i < UPD_PROTO_PARSE_HOLD_MAX; ++i) {
-    if (HEDLEY_UNLIKELY(par->hold[i])) {
-      upd_file_unref(par->hold[i]);
+    if (HEDLEY_UNLIKELY(hold[i])) {
+      upd_file_unref(hold[i]);
     }
   }
 }
