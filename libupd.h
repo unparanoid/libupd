@@ -10,7 +10,7 @@
 
 
 #define UPD_VER_MAJOR UINT16_C(0)
-#define UPD_VER_MINOR UINT16_C(9)
+#define UPD_VER_MINOR UINT16_C(10)
 
 #define UPD_VER  \
   ((UPD_VER_MAJOR) << 16 | UPD_VER_MINOR)
@@ -355,8 +355,7 @@ static inline upd_file_lock_t* upd_file_lock_with_dup(
   f(0x0002, STREAM)  \
   f(0x0003, PROG)  \
   f(0x0004, DSTREAM)  \
-  f(0x0005, TENSOR)  \
-  f(0xffff, PRIV)
+  f(0x0005, TENSOR)
 
 #define UPD_REQ_TYPE_EACH(f)  \
   f(DIR, 0x0010, LIST)  \
@@ -393,8 +392,6 @@ enum {
   UPD_REQ_ABORTED = 0x02,
   UPD_REQ_INVALID = 0x03,
 };
-
-#define UPD_REQ_PRIV_TYPE(n) ((UPD_REQ_PRIV << 16) | (n))
 
 
 typedef struct upd_req_dir_entry_t {
@@ -457,8 +454,6 @@ struct upd_req_t {
       upd_req_tensor_meta_t meta;
       upd_req_tensor_data_t data;
     } tensor;
-
-    uint8_t priv[1];
   };
 };
 
