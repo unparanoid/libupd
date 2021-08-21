@@ -10,7 +10,7 @@
 
 
 #define UPD_VER_MAJOR UINT16_C(0)
-#define UPD_VER_MINOR UINT16_C(8)
+#define UPD_VER_MINOR UINT16_C(9)
 
 #define UPD_VER  \
   ((UPD_VER_MAJOR) << 16 | UPD_VER_MINOR)
@@ -376,7 +376,7 @@ static inline upd_file_lock_t* upd_file_lock_with_dup(
   f(DSTREAM, 0x0020, WRITE)  \
 \
   f(TENSOR, 0x0010, META)  \
-  f(TENSOR, 0x0020, DATA)  \
+  f(TENSOR, 0x0020, FETCH)  \
   f(TENSOR, 0x0028, FLUSH)
 
 enum {
